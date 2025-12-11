@@ -548,23 +548,37 @@ def index():
 def download_proxy():
     video_url = request.args.get('url')
     filename = request.args.get('filename', 'video.mp4')
-    if not (filename.endswith('.mp4') or filename.endswith('.m4a')): filename += '.mp4'
+    
+    # Đảm bảo tên file có đuôi .mp4
+    if not (filename.endswith('.mp4') or filename.endswith('.m4a')): 
+        filename += '.mp4'
+        
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124 Safari/537.36'}
-        # TĂNG TIMEOUT TỪ 20 LÊN 60 GIÂY
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        # Timeout 60s để ổn định đường truyền
         r = requests.get(video_url, stream=True, headers=headers, timeout=60)
         r.raise_for_status()
+
         def generate():
             for chunk in r.iter_content(chunk_size=65536):
                 if chunk: yield chunk
-        content_type = r.headers.get('Content-Type')
-        if not content_type: content_type = 'video/mp4' if filename.endswith('.mp4') else 'audio/m4a'
+        
+        # --- THAY ĐỔI QUAN TRỌNG Ở ĐÂY ---
+        # Thay vì dùng 'video/mp4', ta dùng 'application/octet-stream'
+        # Điều này bắt buộc trình duyệt (cả Mobile & PC) phải hiện hộp thoại tải về
+        # thay vì cố gắng phát video.
+        content_type = 'application/octet-stream' 
             
         resp = Response(stream_with_context(generate()), content_type=content_type)
+        
+        # Header này cũng giúp ép buộc tải xuống
         resp.headers['Content-Disposition'] = f"attachment; filename*=utf-8''{quote_plus(filename)}"
         return resp
+
     except requests.exceptions.Timeout:
-        return "Lỗi tải xuống: Quá trình chuyển tiếp dữ liệu bị hết thời gian chờ (timeout). Vui lòng thử lại.", 504
+        return "Lỗi tải xuống: Hết thời gian chờ (timeout). Mạng quá chậm.", 504
     except Exception as e: 
         print(f"Proxy Download Error: {e}")
         return "Lỗi tải xuống không xác định.", 500
