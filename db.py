@@ -11,7 +11,7 @@ import subprocess
 app = Flask(__name__)
 
 # ==========================================
-# GIAO DIỆN MỚI (V9 - THÊM HIỆU ỨNG HOVER)
+# GIAO DIỆN MỚI (V9 - GIỮ NGUYÊN)
 # ==========================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -392,7 +392,7 @@ HTML_TEMPLATE = """
 """
 
 # ==========================================
-# BACKEND (LOGIC) - GIỮ NGUYÊN NHƯ V8
+# BACKEND (LOGIC) - CẬP NHẬT TIMEOUT TRONG download_proxy()
 # ==========================================
 def format_seconds(seconds):
     if not seconds: return "N/A"
@@ -543,7 +543,7 @@ def index():
                                   page_videos=page_videos, 
                                   page_title=page_title)
 
-# Hàm download_proxy (Giữ nguyên)
+# Hàm download_proxy - ĐÃ TĂNG TIMEOUT
 @app.route('/download_proxy')
 def download_proxy():
     video_url = request.args.get('url')
@@ -551,7 +551,8 @@ def download_proxy():
     if not (filename.endswith('.mp4') or filename.endswith('.m4a')): filename += '.mp4'
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124 Safari/537.36'}
-        r = requests.get(video_url, stream=True, headers=headers, timeout=20)
+        # TĂNG TIMEOUT TỪ 20 LÊN 60 GIÂY
+        r = requests.get(video_url, stream=True, headers=headers, timeout=60)
         r.raise_for_status()
         def generate():
             for chunk in r.iter_content(chunk_size=65536):
@@ -562,7 +563,11 @@ def download_proxy():
         resp = Response(stream_with_context(generate()), content_type=content_type)
         resp.headers['Content-Disposition'] = f"attachment; filename*=utf-8''{quote_plus(filename)}"
         return resp
-    except: return "Lỗi tải xuống", 500
+    except requests.exceptions.Timeout:
+        return "Lỗi tải xuống: Quá trình chuyển tiếp dữ liệu bị hết thời gian chờ (timeout). Vui lòng thử lại.", 504
+    except Exception as e: 
+        print(f"Proxy Download Error: {e}")
+        return "Lỗi tải xuống không xác định.", 500
 
 # Hàm mux_and_stream (Giữ nguyên)
 @app.route('/mux_and_stream')
